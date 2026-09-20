@@ -696,7 +696,7 @@ std::expected<void, InlineHook::Error> InlineHook::enable() {
     std::optional<Error> error;
 
     // jmp from original to trampoline.
-    trap_threads(m_target, m_trampoline.data(), m_original_bytes.size(), [this, &error] {
+    if (!trap_threads(m_target, m_trampoline.data(), m_original_bytes.size(), [this, &error] {
         if (m_type == Type::E9) {
             auto trampoline_epilogue = reinterpret_cast<TrampolineEpilogueE9*>(
                 m_trampoline.address() + m_trampoline_size - sizeof(TrampolineEpilogueE9));
@@ -716,7 +716,9 @@ std::expected<void, InlineHook::Error> InlineHook::enable() {
             }
         }
 #endif
-    });
+    })) {
+        return std::unexpected{Error::failed_to_unprotect(m_target)};
+    }
 
     if (error) {
         return std::unexpected{*error};
@@ -734,8 +736,9 @@ std::expected<void, InlineHook::Error> InlineHook::disable() {
         return {};
     }
 
-    trap_threads(m_trampoline.data(), m_target, m_original_bytes.size(),
-        [this] { std::copy(m_original_bytes.begin(), m_original_bytes.end(), m_target); });
+    if (!trap_threads(m_trampoline.data(), m_target, m_original_bytes.size(),
+        [this] { std::copy(m_original_bytes.begin(), m_original_bytes.end(), m_target); }))
+        return std::unexpected{Error::failed_to_unprotect(m_target)};
 
     m_enabled = false;
 
@@ -1111,13 +1114,14 @@ SystemInfo system_info() {
     return info;
 }
 
-void trap_threads([[maybe_unused]] uint8_t* from, [[maybe_unused]] uint8_t* to, [[maybe_unused]] size_t len,
+bool trap_threads([[maybe_unused]] uint8_t* from, [[maybe_unused]] uint8_t* to, [[maybe_unused]] size_t len,
     const std::function<void()>& run_fn) {
     auto from_protect = vm_protect(from, len, VM_ACCESS_RWX).value_or(0);
     auto to_protect = vm_protect(to, len, VM_ACCESS_RWX).value_or(0);
     run_fn();
     vm_protect(to, len, to_protect);
     vm_protect(from, len, from_protect);
+    return true;
 }
 
 void fix_ip([[maybe_unused]] ThreadContext ctx, [[maybe_unused]] uint8_t* old_ip, [[maybe_unused]] uint8_t* new_ip) {
@@ -1353,6 +1357,10 @@ public:
         m_traps.insert_or_assign(from, std::move(info));
     }
 
+    void remove_trap(uint8_t* from) {
+        m_traps.erase(from);
+    }
+
 private:
     std::map<uint8_t*, TrapInfo> m_traps;
     PVOID m_trap_veh{};
@@ -1395,17 +1403,17 @@ void find_me() {
 
 static std::mutex virtual_protect_mutex;
 
-void trap_threads(uint8_t* from, uint8_t* to, size_t len, const std::function<void()>& run_fn) {
+bool trap_threads(uint8_t* from, uint8_t* to, size_t len, const std::function<void()>& run_fn) {
     MEMORY_BASIC_INFORMATION find_me_mbi{};
     MEMORY_BASIC_INFORMATION from_mbi{};
     MEMORY_BASIC_INFORMATION to_mbi{};
 
-    VirtualQuery(reinterpret_cast<void*>(find_me), &find_me_mbi, sizeof(find_me_mbi));
-    VirtualQuery(from, &from_mbi, sizeof(from_mbi));
-    VirtualQuery(to, &to_mbi, sizeof(to_mbi));
+    if (!VirtualQuery(reinterpret_cast<void*>(find_me), &find_me_mbi, sizeof(find_me_mbi)) ||
+        !VirtualQuery(from, &from_mbi, sizeof(from_mbi)) ||
+        !VirtualQuery(to, &to_mbi, sizeof(to_mbi))) return false;
 
     if (to_mbi.State != MEM_COMMIT) {
-        return;
+        return false;
     }
 
     auto new_protect = PAGE_READWRITE;
@@ -1440,15 +1448,27 @@ void trap_threads(uint8_t* from, uint8_t* to, size_t len, const std::function<vo
     DWORD from_protect;
     DWORD to_protect;
 
-    VirtualProtect(from, len, new_protect, &from_protect);
-    VirtualProtect(to, len, new_protect, &to_protect);
+    const bool fromChanged = VirtualProtect(from, len, new_protect, &from_protect) != FALSE;
+    const bool toChanged = fromChanged &&
+        VirtualProtect(to, len, new_protect, &to_protect) != FALSE;
+    if (!toChanged) {
+        if (fromChanged) VirtualProtect(from, len, from_protect, &from_protect);
+        std::scoped_lock lock{TrapManager::mutex};
+        if (TrapManager::instance) TrapManager::instance->remove_trap(from);
+        return false;
+    }
 
     if (run_fn) {
         run_fn();
     }
 
-    VirtualProtect(to, len, to_protect, &to_protect);
-    VirtualProtect(from, len, from_protect, &from_protect);
+    const bool restored = VirtualProtect(to, len, to_protect, &to_protect) &&
+        VirtualProtect(from, len, from_protect, &from_protect);
+    {
+        std::scoped_lock lock{TrapManager::mutex};
+        if (TrapManager::instance) TrapManager::instance->remove_trap(from);
+    }
+    return restored;
 }
 
 void fix_ip(ThreadContext thread_ctx, uint8_t* old_ip, uint8_t* new_ip) {

@@ -190,7 +190,7 @@ SystemInfo SAFETYHOOK_API system_info();
 
 using ThreadContext = void*;
 
-void SAFETYHOOK_API trap_threads(uint8_t* from, uint8_t* to, size_t len, const std::function<void()>& run_fn);
+bool SAFETYHOOK_API trap_threads(uint8_t* from, uint8_t* to, size_t len, const std::function<void()>& run_fn);
 
 /// @brief Will modify the context of a thread's IP to point to a new address if its IP is at the old address.
 /// @param ctx The thread context to modify.

@@ -1,11 +1,11 @@
 STALKER 2 Ultrawide and Camera Tweaks for UE 5.5.4
-Version 0.6.0
+Version 1.0.0
 
 [b]ABOUT[/b]
 
 A unified ultrawide, cinematic and camera/FOV fix for S.T.A.L.K.E.R. 2: Heart of Chornobyl on Steam.
 
-The mod corrects gameplay camera behavior on 21:9 and 32:9 displays, fixes cinematic aspect ratio and Hor+ FOV, adds custom cinematic framing, and provides FOV-aware dialogue zoom controls. Version 0.6.0 replaces the old staged gameplay correction with an atomic camera-state handoff and applies the gameplay framing correction once at the start of post-cinematic recovery, removing the mod's additional post-cinematic flick.
+The mod corrects gameplay camera behavior on 16:9, 21:9 and 32:9 displays, fixes cinematic aspect ratio and Hor+ FOV, adds custom cinematic framing, and provides FOV-aware dialogue zoom controls. Version 1.0.0 consolidates the gameplay and cinematic camera-state handling, adds GameplayHorPlus cinematic framing, and preserves the atomic post-cinematic recovery handoff. The current combined runtime validation covers Steam 2.0.6.
 
 [b]COMPATIBILITY WITH CAMERA / FOV MODS[/b]
 
@@ -16,15 +16,19 @@ Bug reports must be reproduced with STALKER2CameraTweaks as the only installed c
 [b]FEATURES[/b]
 
 [list]
-[*]Fixes gameplay aspect transitions on 21:9 and 32:9 with an atomic camera-state apply.
+[*]Fixes gameplay aspect transitions on 16:9, 21:9 and 32:9 with an atomic camera-state apply.
 [*]Applies a single atomic gameplay handoff at the start of post-cinematic native FOV recovery.
 [*]Automatically re-arms after gameplay camera rebuilds, including death and load.
 [*]Preserves the selected gameplay FOV.
+[*]Provides gameplay correction modes: AspectRecalculation and HorPlus, which preserves the game's original gameplay FOV changes and adapts them in real time to the current aspect ratio.
+[*]HorPlus supports arbitrary valid runtime aspects, including ADS and binocular FOV trajectories.
 [*]Corrects cinematic aspect ratio using the game's runtime camera state.
-[*]Applies Hor+ cinematic FOV correction.
+[*]Provides default GameplayHorPlus cinematic FOV that follows the selected Gameplay FOV, with NativeHorPlus as an independent alternative.
 [*]Supports custom cinematic framing: Auto, Native, 16:9, 21:9 and 32:9.
 [*]Allows 16:9 users to preview wider cinematic framing with letterbox bars.
 [*]Adds FOV-aware dialogue zoom: Native, Adaptive, Reduced and Disabled.
+[*]Provides optional read-only Diagnostics telemetry for research sessions; it is disabled by default and is not recommended for normal gameplay.
+[*]Provides optional F9/F10/F11/F12 runtime hotkeys: F9 gameplay, F10 cinematic aspect, F11 cinematic FOV and F12 dialogue.
 [*]Creates and synchronizes the INI configuration automatically.
 [*]Uses guarded signature resolution and fails safely when validation does not pass.
 [/list]
@@ -43,14 +47,26 @@ The cinematic framing can be selected independently from the physical display:
 
 For example, forcing 32:9 on a 16:9 display produces a wider cinematic presentation with black bars above and below. The cinematic FOV is handled automatically for the selected framing policy.
 
+[b]CINEMATIC FOV MODES[/b]
+
+The cinematic FOV mode is independent from the cinematic aspect policy:
+
+[list]
+[*]GameplayHorPlus - default with Gameplay.Mode=HorPlus; follows changes to the game's Gameplay FOV while preserving authored cinematic variation. If the required gameplay context is unavailable, it falls back to NativeHorPlus.
+[*]NativeHorPlus - applies Hor+ directly to the authored/native cinematic FOV and does not follow the player's Gameplay FOV setting.
+[/list]
+
+Use `Cinematics.FovMode=GameplayHorPlus` or `Cinematics.FovMode=NativeHorPlus`. F11 cycles these modes for the next cinematic when hotkeys are enabled; an active cinematic is not rebuilt retroactively.
+
 [b]DIALOGUE ZOOM[/b]
 
-Version 0.6.0 updates the unified ASI for Steam 2.0.5 while retaining dialogue zoom that adapts to the actual gameplay FOV:
+Version 1.0.0 updates the unified ASI for Steam 2.0.6 while retaining dialogue zoom that adapts to the actual gameplay FOV:
 
 [list]
 [*]Native - keeps the game's original dialogue zoom, currently targeting 70 degrees.
 [*]Adaptive - preserves the game's native optical zoom strength relative to the current gameplay FOV.
-[*]Reduced - applies half of the Adaptive optical zoom strength. This is the default mode.
+[*]Adaptive - default; preserves the game's native optical zoom strength relative to the current gameplay FOV.
+[*]Reduced - applies half of the Adaptive optical zoom strength.
 [*]Disabled - keeps the gameplay FOV during dialogue.
 [/list]
 
@@ -66,23 +82,59 @@ Default configuration:
 [Gameplay]
 ; Use true to enable gameplay aspect correction, or false to disable it.
 Enabled=true
+; Gameplay correction mode: HorPlus or AspectRecalculation.
+;
+; HorPlus - default and recommended mode. Preserves the game's native Gameplay FOV changes and adapts them in real time to the current runtime aspect ratio. Supports arbitrary/custom aspect ratios and native FOV changes such as ADS and binocular zoom.
+;
+; AspectRecalculation - alternative mode that uses the game's native aspect/projection transition to correct Gameplay framing while preserving the selected Gameplay FOV.
+;
+; On custom windowed aspect ratios that are not represented by a native game aspect mode, AspectRecalculation may return the window to the display's native aspect/size when the game restores Auto. This limitation does not apply to HorPlus.
+;
+; HorPlus examples when idle:
+; Gameplay FOV 90°:  16:9 -> 90°; 21:9 -> approximately 106.69°; 32:9 -> approximately 126.87°.
+; Gameplay FOV 100°: 16:9 -> 100°; 21:9 -> approximately 116.04°; 32:9 -> approximately 134.48°.
+; Gameplay FOV 110°: 16:9 -> 110°; 21:9 -> approximately 124.95°; 32:9 -> approximately 141.41°.
+Mode=HorPlus
 
 [Cinematics]
 AspectRatio=Auto
+; GameplayHorPlus - default with Gameplay.Mode=HorPlus; follows changes to the
+;                  game's Gameplay FOV while preserving authored variation.
+;                  For authored cinematic FOV 90° with Gameplay FOV 90°:
+;                  16:9 -> 90°; 21:9 -> approximately 106.69°;
+;                  32:9 -> approximately 126.87°.
+;                  With Gameplay FOV 112.6°:
+;                  16:9 -> approximately 112.6°; 21:9 -> 118.51°;
+;                  32:9 -> approximately 143.13°.
+; NativeHorPlus - alternative native/authored cinematic FOV mode independent
+;                 of the player's Gameplay FOV setting.
+;                 For authored cinematic FOV 90°:
+;                 16:9 -> 90°; 21:9 -> approximately 106.69°;
+;                 32:9 -> approximately 126.87°.
+FovMode=GameplayHorPlus
 
 [Dialogue]
-Zoom=Reduced
+Zoom=Adaptive
+
+[Diagnostics]
+; Optional read-only runtime telemetry. Not recommended for normal use;
+; enable only for research sessions and additional runtime logging.
+Enabled=false
 
 [Hotkeys]
 ; Use true to enable all runtime hotkeys, or false to disable them.
 Enabled=false
 ; Supported keys: F1-F12, 0-9 and A-Z.
-CinematicCycle=F9
+CinematicCycle=F10
 ; Supported keys: F1-F12, 0-9 and A-Z.
-DialogueCycle=F10
+CinematicFovCycle=F11
+; Supported keys: F1-F12, 0-9 and A-Z.
+GameplayCycle=F9
+; Supported keys: F1-F12, 0-9 and A-Z.
+DialogueCycle=F12
 [/code]
 
-Manual INI changes require a game restart. Optional runtime hotkeys are intended mainly for testing and comparing settings; they are disabled by default. CinematicCycle selects the mode for the next cinematic, and DialogueCycle selects the mode for the next dialogue. An active cinematic or dialogue is not rebuilt after a hotkey press.
+Manual INI changes require a game restart. Optional runtime hotkeys are intended mainly for testing and comparing settings; they are disabled by default. F9 switches the gameplay correction mode immediately, F10 selects the aspect policy for the next cinematic, F11 selects its FOV mode, and F12 selects the zoom mode for the next dialogue. An active cinematic or dialogue is not rebuilt after a hotkey press.
 
 Supported hotkey bindings: F1-F12, 0-9 and A-Z.
 
@@ -91,7 +143,7 @@ Supported hotkey bindings: F1-F12, 0-9 and A-Z.
 [list]
 [*]Steam version of S.T.A.L.K.E.R. 2: Heart of Chornobyl.
 [*][url=https://github.com/ThirteenAG/Ultimate-ASI-Loader]Ultimate ASI Loader (x64)[/url], with dsound.dll placed in Stalker2\Binaries\Win64.
-[*]Production implementation runtime-tested on Steam 2.0.5.
+[*]Production implementation runtime-tested on Steam 2.0.6.
 [*]Static resolver validation: Steam 2.0.2, 2.0.3, 2.0.4 and 2.0.5.
 [*]Unreal Engine target: 5.5.4.
 [/list]
@@ -110,19 +162,24 @@ The plugin creates STALKER2CameraTweaks.log in the game folder. Include this log
 [b]TESTED[/b]
 
 [list]
-[*]21:9 and 32:9 gameplay, including startup, aspect switching and death/load camera rebuilds.
+[*]16:9, 21:9 and 32:9 gameplay, including startup, aspect switching and death/load camera rebuilds.
 [*]Auto, Native, forced 16:9, 21:9 and 32:9 cinematic framing.
 [*]Runtime aspect changes after changing resolution during the same session in Auto mode.
-[*]Dialogue zoom Native, Adaptive, Reduced and Disabled on Steam 2.0.5.
+[*]Dialogue zoom Native, Adaptive, Reduced and Disabled on Steam 2.0.6.
 [*]Sequential dialogue cycles and cinematic-to-dialogue state isolation.
+[*]NativeHorPlus and GameplayHorPlus cinematic FOV modes, including F11 switching.
+[*]F9 live switching between AspectRecalculation and HorPlus, including ADS/binocular transitions.
+[*]Save/load camera recreation, cinematic EXIT/recovery and dialogue coexistence.
 [*]Configurable runtime hotkeys and INI template synchronization behavior.
-[*]Resolver portability statically validated across Steam 2.0.2–2.0.5. Runtime validation of the current production implementation is limited to 2.0.5.
+[*]Resolver portability statically validated across Steam 2.0.2–2.0.5. Runtime validation of the current production implementation is limited to 2.0.6.
 [/list]
 
 [b]KNOWN ISSUES[/b]
 
 [list]
 [*]Weapon/viewmodel FOV can be incorrect after a cinematic, load or gameplay-camera rebuild. Aiming down sights or opening a menu refreshes the game's viewmodel state. This is a separate game-side issue and is not fixed by this release.
+[*]In windowed mode, a custom resolution whose aspect is not represented by a native game aspect mode may be resized by the game's native AspectRecalculation return to Auto. This does not mean arbitrary-aspect HorPlus is unsupported.
+[*]For a more consistent weapon/viewmodel correction, [url=https://www.nexusmods.com/stalker2heartofchornobyl/mods/2422]Weapon Viewmodel FOV[/url] can be used alongside this mod.
 [*]Do not combine this release with the old gameplay ASI or experimental cinematic ASI files.
 [/list]
 
@@ -132,7 +189,7 @@ Gameplay, cinematic and dialogue code locations are resolved dynamically using g
 
 Game updates that only relocate validated code may continue to work without a mod update, while structural changes may require new signatures. If validation fails or becomes ambiguous, the affected hook fails safely rather than installing against an unknown code path.
 
-The production implementation was runtime-tested on Steam build 2.0.5. Static resolver validation across Steam 2.0.2–2.0.5 confirms resolver portability but does not establish runtime support for the older builds. The game's native post-cinematic FOV recovery remains untouched.
+The production implementation was runtime-tested on Steam build 2.0.6. Static resolver validation across Steam 2.0.2–2.0.5 confirms resolver portability but does not establish runtime support for the older builds. The game's native post-cinematic FOV recovery remains untouched.
 
 [b]DEFENDER NOTICE[/b]
 

@@ -1,6 +1,11 @@
 *.asi
 *.pdb
 *.ilk
+*.obj
+*.exe
 x64/
 .vs/
 release-assets/
+build-artifacts/
+research/tools/**/bin/
+research/tools/**/obj/
