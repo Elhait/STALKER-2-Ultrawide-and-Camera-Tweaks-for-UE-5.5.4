@@ -40,97 +40,113 @@ The plugin creates `STALKER2CameraTweaks.log` beside the game executable. The st
 ## Configuration
 
 ```ini
-; Most configuration changes require restarting the game.
-; When runtime hotkeys are enabled, Gameplay changes apply immediately, while
-; Cinematics and Dialogue selections apply to the next applicable event.
-
 [Gameplay]
-; Use true to enable gameplay aspect correction, or false to disable it.
+; Enables the gameplay aspect-ratio correction.
+;
+; true  - enable the selected gameplay correction mode.
+; false - leave the game's original gameplay camera/aspect behavior untouched.
 Enabled=true
+
 ; Gameplay correction mode: HorPlus or AspectRecalculation.
 ;
-; HorPlus - default and recommended mode. Preserves the game's native Gameplay
-;          FOV changes and adapts them in real time to the current runtime aspect
-;          ratio. Supports arbitrary/custom aspect ratios and native FOV changes
-;          such as ADS and binocular zoom.
+; HorPlus - default and recommended mode. Preserves the game's native Gameplay FOV changes and adapts them in real time to the current runtime aspect ratio. Supports arbitrary/custom aspect ratios and native FOV changes such as ADS and binocular zoom.
 ;
-; AspectRecalculation - alternative mode that uses the game's native
-;          aspect/projection transition to correct Gameplay framing while
-;          preserving the selected Gameplay FOV.
+; AspectRecalculation - alternative mode that uses the game's native aspect/projection transition to correct Gameplay framing while preserving the selected Gameplay FOV.
 ;
-; On custom windowed aspect ratios not represented by a native game aspect mode,
-;          AspectRecalculation may return the window to the display's native
-;          aspect/size when the game restores Auto. This limitation does not
-;          apply to HorPlus.
+; On custom windowed aspect ratios that are not represented by a native game aspect mode, AspectRecalculation may return the window to the display's native aspect/size when the game restores Auto. This limitation does not apply to HorPlus.
 ;
 ; HorPlus examples when idle:
-; Gameplay FOV 90°:  16:9 -> 90°; 21:9 -> approximately 106.69°;
-;                    32:9 -> approximately 126.87°.
-; Gameplay FOV 100°: 16:9 -> 100°; 21:9 -> approximately 116.04°;
-;                    32:9 -> approximately 134.48°.
-; Gameplay FOV 110°: 16:9 -> 110°; 21:9 -> approximately 124.95°;
-;                    32:9 -> approximately 141.41°.
+; Gameplay FOV 90°:  16:9 -> 90°; 21:9 -> approximately 106.69°; 32:9 -> approximately 126.87°.
+; Gameplay FOV 100°: 16:9 -> 100°; 21:9 -> approximately 116.04°; 32:9 -> approximately 134.48°.
+; Gameplay FOV 110°: 16:9 -> 110°; 21:9 -> approximately 124.95°; 32:9 -> approximately 141.41°.
 Mode=HorPlus
 
+
 [Cinematics]
-; Auto, Native, 16:9, 21:9, 32:9
+; Controls how cinematics are framed independently from your physical display.
+;
+; Auto   - use the current runtime viewport aspect ratio. Supports arbitrary valid aspect ratios and is recommended for most users.
+;
+; Native - leave the game's original cinematic aspect and FOV behavior untouched without cinematic FOV/aspect correction from the mod. On ultrawide displays, Native may look similar or identical to 16:9 because this is how the game currently presents its cinematics without intervention from the mod.
+;
+; 16:9   - force 16:9 cinematic framing.
+;
+; 21:9   - force 21:9 cinematic framing, regardless of the physical display.
+;
+; 32:9   - force 32:9 cinematic framing, regardless of the physical display.
+;
+; Forced modes can also be used on displays with a different aspect ratio. For example, 32:9 on a 16:9 display produces a wider cinematic presentation with black bars above and below.
+; When using Gameplay HorPlus, forcing a cinematic aspect that differs from the actual Gameplay aspect intentionally introduces an aspect/FOV transition when entering or leaving Cinematics.
+; For seamless HorPlus transitions, use Auto or force the same aspect ratio that is actually used during Gameplay.
 AspectRatio=Auto
-; GameplayHorPlus - default with Gameplay.Mode=HorPlus; follows changes to the
-;                  game's Gameplay FOV while preserving authored variation.
-;                  Falls back to NativeHorPlus when its context is unavailable.
-;                  For authored cinematic FOV 90° with Gameplay FOV 90°:
-;                  16:9 -> 90°; 21:9 -> approximately 106.69°;
-;                  32:9 -> approximately 126.87°.
-;                  With Gameplay FOV 112.6°:
-;                  16:9 -> approximately 112.6°; 21:9 -> 118.51°;
-;                  32:9 -> approximately 143.13°.
-; NativeHorPlus   - alternative native/authored cinematic FOV mode independent
-;                  of the player's Gameplay FOV setting.
-;                  For authored cinematic FOV 90°:
-;                  16:9 -> 90°; 21:9 -> approximately 106.69°;
-;                  32:9 -> approximately 126.87°.
+
+; Cinematic FOV mode: GameplayHorPlus or NativeHorPlus.
+;
+; GameplayHorPlus - default and recommended FOV mode for Gameplay HorPlus. Uses the current native Gameplay FOV as the cinematic baseline, so changing the FOV setting in the game also changes the resulting cinematic FOV while preserving the cinematic's authored FOV variation.
+;                  Examples for authored cinematic FOV 90° with Gameplay FOV 90°: 16:9 -> 90°; 21:9 -> approximately 106.69°; 32:9 -> approximately 126.87°.
+;                  With Gameplay FOV 112.6°, the same cinematic becomes approximately 112.6° at 16:9, 118.51° at 21:9 and 143.13° at 32:9.
+;                  Falls back safely when the required Gameplay context is unavailable.
+;
+; NativeHorPlus   - alternative mode that applies Hor+ to the native/authored cinematic FOV independently of the player's Gameplay FOV setting.
+;                  For authored cinematic FOV 90°: 16:9 -> 90°; 21:9 -> approximately 106.69°; 32:9 -> approximately 126.87° regardless of Gameplay FOV.
 FovMode=GameplayHorPlus
 
+
 [Dialogue]
-; Native   - keep the game's original dialogue zoom, currently targeting 70°.
-; Adaptive - preserve the native optical zoom strength relative to the current gameplay FOV.
+; Controls the camera zoom applied during dialogue.
+;
+; Native   - use the game's original dialogue zoom behavior.
+;            Example: 90° gameplay FOV -> 70° during dialogue.
+;            Example: 110° gameplay FOV -> 70° during dialogue.
+;
+; Adaptive - preserve the game's original optical zoom strength relative
+;            to the current gameplay FOV.
+;            Example: 90° gameplay FOV -> 70° during dialogue.
+;            Example: 110° gameplay FOV -> approximately 90° during dialogue.
+;
 ; Reduced  - apply half of the Adaptive optical zoom strength.
-; Disabled - keep the current gameplay FOV during dialogue.
+;            Example: 90° gameplay FOV -> approximately 80° during dialogue.
+;            Example: 110° gameplay FOV -> approximately 100° during dialogue.
+;
+; Disabled - disable additional dialogue zoom and preserve normal gameplay framing.
+;            Example: 90° gameplay FOV -> 90° during dialogue.
+;            Example: 110° gameplay FOV -> 110° during dialogue.
 Zoom=Adaptive
 
+
 [Diagnostics]
-; Optional read-only runtime telemetry. Not recommended for normal use;
-; enable only for research sessions and additional runtime logging.
+; Enables optional read-only runtime telemetry. It is not recommended for normal use of the mod; enable it only for research sessions and additional runtime logging.
+; false - keep diagnostic telemetry disabled.
+; true  - enable CameraState, ZOOM and HorPlus FOV telemetry.
 Enabled=false
+
 
 [Hotkeys]
-; Optional runtime controls for testing and comparing settings without restarting the game.
-; Intended mainly for research and comparison; disable for normal use.
-; Use true to enable all runtime hotkeys, or false to disable them.
+; Optional runtime controls for changing and comparing modes without restarting
+; the game. Changes made through hotkeys are saved to this configuration.
+;
+; Hotkeys are intended primarily for testing, comparison and configuration;
+; they can remain disabled during normal gameplay.
+; true  - enable all runtime hotkeys listed below.
+; false - disable all runtime hotkeys.
 Enabled=false
 
-; Cycle the gameplay correction mode immediately:
-; AspectRecalculation -> HorPlus -> AspectRecalculation.
+; Cycle the gameplay correction mode immediately: AspectRecalculation -> HorPlus -> AspectRecalculation.
 ; Supported keys: F1-F12, 0-9 and A-Z.
 GameplayCycle=F9
 
-; Cycle the cinematic aspect mode for the next cinematic:
-; Auto -> Native -> 16:9 -> 21:9 -> 32:9 -> Auto.
-; Does not affect a cinematic that is already playing.
+; Cycle the cinematic aspect mode for the next cinematic: Auto -> Native -> 16:9 -> 21:9 -> 32:9 -> Auto. Does not affect a cinematic that is already playing.
 ; Supported keys: F1-F12, 0-9 and A-Z.
 CinematicCycle=F10
 
-; Cycle the cinematic FOV mode for the next cinematic:
-; NativeHorPlus -> GameplayHorPlus -> NativeHorPlus.
-; Does not affect a cinematic that is already playing.
+; Cycle the cinematic FOV mode for the next cinematic: GameplayHorPlus -> NativeHorPlus -> GameplayHorPlus. Does not affect a cinematic that is already playing.
 ; Supported keys: F1-F12, 0-9 and A-Z.
 CinematicFovCycle=F11
 
-; Cycle the dialogue zoom mode for the next dialogue:
-; Native -> Adaptive -> Reduced -> Disabled -> Native.
-; Does not affect a dialogue that is already in progress.
+; Cycle the dialogue zoom mode for the next dialogue: Native -> Adaptive -> Reduced -> Disabled -> Native. Does not affect a dialogue that is already in progress.
 ; Supported keys: F1-F12, 0-9 and A-Z.
 DialogueCycle=F12
+
 ```
 
 `Auto` follows the game's runtime camera aspect and applies matching Hor+ FOV, including arbitrary valid runtime aspects. `GameplayHorPlus` is the default cinematic FOV mode with `Gameplay.Mode=HorPlus`: it follows changes to the game's Gameplay FOV setting while preserving authored cinematic variation. `NativeHorPlus` remains available as an alternative that is independent of Gameplay FOV. Forced cinematic aspects should match the gameplay aspect for the intended seamless transition. Restart the game after manually editing the INI file. Runtime hotkey selections do not require a restart and apply to the next corresponding cinematic or dialogue.
